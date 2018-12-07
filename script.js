@@ -1,5 +1,5 @@
 //BlackJack
-//by olga 
+//by olga
 "use strict"
 
 //card variables
@@ -24,125 +24,191 @@ let allScores = {
 
 //DOM varivariables
 let textArea = document.getElementById('text-area');
-let hitButton = document.getElementById('hit-me');
+let hitButton = {
+    player1 : document.getElementById('hit-me'),
+    player2 : document.getElementById('hit-me2')
+};
 let stayButton = document.getElementById('stay');
 let newGameButton = document.getElementById('new-game-button');
 let gameResultArea = document.getElementById('game-result');
+let splitButton = document.getElementById('split');
 
 //Game variables
 let gameStarted = false,
-    gameOver = false,
+    game1over = false,
+    game2over = false,
+    gameOver = {
+        player1: false,
+        player2: false,
+        general: false
+    },
     playerWin = false,
-    playerCards = [],
+    cards = {},
     dealerCards= [],
-    playerScore = 0,
+    playerScore = {},
     dealerScore =0,
     deck =[],
-    shuffledDeck = []; 
+    shuffledDeck = [],
+    splitmode = false;
 
 
-
-hitButton.style.display = 'none';
+hitButton.player1.style.display = 'none';
 stayButton.style.display = 'none';
+hitButton.player2.style.display = 'none';
+splitButton.style.display = 'none';
 showStatus();
 
-hitButton.addEventListener('click', function() {
-    let newCard = getNextCard(shuffledDeck);
-    playerCards.push(newCard);
-    playerScore = calculateScore(playerCards);
-    showStatus(); 
-    checkIfsomeoneLost(); 
-    if (gameOver) {
+function clearGameIfNeeded() {
+    if (checkIfGameOver()){
         clearGame();
     }
+}
+
+function hitMe(playerName) {
+    splitButton.style.display = 'none';
+    playerScore[playerName] = getNewCardAndCalcScore(cards[playerName]);
+    showStatus();
+    checkIfBlackJack();
+    clearGameIfNeeded();
+    checkIfsomeoneLost();
+    clearGameIfNeeded();
+}
+hitButton["player1"].addEventListener('click', function() {
+    hitMe("player1");
 });
 
+hitButton.player2.addEventListener('click', function() {
+    hitMe("player2");
+});
 
+function getNewCardAndCalcScore(relevantPlayerCards){
+    let newCard = getNextCard(shuffledDeck);
+    relevantPlayerCards.push(newCard);
+    return calculateScore(relevantPlayerCards);
+}
+
+function checkIfGameOver(){
+    if (gameOver.player1 && gameOver.player2){
+        gameOver.general = true;
+    }
+    return gameOver.general;
+}
 
 stayButton.addEventListener('click', function(){
-    dealersMove(); 
-    showStatus();  
+    dealersMove();
+    showStatus();
     checkIfsomeoneLost();
-    if (gameOver) {
-        clearGame();
-     } else {
-        checkIfSomeoneWon();
-     } 
-
+    clearGameIfNeeded();
+    checkIfSomeoneWon();
+    clearGameIfNeeded();
 });
 
 
 function checkIfsomeoneLost(){
-    if (dealerScore > 21){
-        gameResultArea.innerText = "You Win!"
-        gameOver =true;
-          
-    } else if (playerScore > 21) {
-        gameResultArea.innerText = "Dealer Won"
-        gameOver = true;  
+    if (dealerScore > 21) {
+        gameResultArea.innerText = "Dealer lost!"
+        gameOver.general = true;
+        return;
+    }
+
+    for (let player in playerScore){
+        if (playerScore[player]  > 21 && !gameOver[player]) {
+            gameResultArea.innerText += "Dealer Won " + player + "\n";
+            hitButton[player].style.display = "none";
+            gameOver[player] = true;
+        }
     }
 }
 
 function checkIfBlackJack() {
-    if ((playerScore === 21) || (dealerScore === 21)){
-        if ((playerScore === 21) && (dealerScore === 21)){
-                gameResultArea.innerText = "Two black Jacks?! What are the odds?"
-                clearGame();
-                return;
-        } else if (playerScore === 21) {
-            gameResultArea.innerText = "You Win!"
-            clearGame();
-            return;
-        } else {
-            gameResultArea.innerText = "Dealer Won"
-            clearGame();
+
+    let BJ = {};
+    for (let player in playerScore) {
+        if (cards[player].length === 2 && playerScore[player] === 21 && !gameOver[player]) {
+            BJ[player] = true;
+            hitButton[player].style.display ='none';
         }
-        
+    }
+    if (dealerScore === 21) {
+        BJ.dealer = true;
+        gameOver.dealer = true;
+        for (let player in playerScore){
+            gameOver[player] =true;
+        }
+    }
+
+    for (let player in BJ) {
+        gameResultArea.innerText += player + " got BJ! \n\n"
+        gameOver[player] =true;
     }
 }
 
-function checkIfSomeoneWon(){
-    if (playerScore > dealerScore) {
-        gameResultArea.innerText = "You Win!"
-        clearGame();
-        return; 
-    } else if (dealerScore > playerScore){
-        gameResultArea.innerText = "Dealer Won"
-        clearGame();
-        return;
+function checkIfSomeoneWon() {
+    for (let player in cards) {
+        if ((dealerScore > playerScore[player]) && !gameOver[player] ){
+            gameResultArea.innerText += "Dealer Won " + player;
+            gameOver[player] = true;
+        } else {
+            if ((dealerScore < playerScore[player]) && !gameOver[player] ){
+                gameResultArea.innerText += "Dealer lost " + player;
+                gameOver[player] = true;
+            }
+        }
     }
-    gameResultArea.innerText = "This time no one won :("
+    for (let player in cards) {
+        if (!gameOver[player]){
+            gameResultArea.innerText = "This time no one won :("
+        }
+    }
     clearGame();
 }
 
 
 newGameButton.addEventListener('click', function(){
     gameStarted = true,
-    gameOver = false,
-    playerWin = false,
-    
+    gameOver = {
+     player1 : false,
+     player2 : true,
+     general : false
+    }
 
     newGameButton.style.display = 'none';
-    hitButton.style.display = 'inline';
+    hitButton.player1.style.display = 'inline';
     stayButton.style.display = 'inline';
     gameResultArea.innerText = [];
 
     deck = createDeck(allTypes, allValues)
     shuffledDeck = shuffleDeck(deck);
-    playerCards = [getNextCard(shuffledDeck) , getNextCard(shuffledDeck)];
+    cards.player1 = [getNextCard(shuffledDeck) , getNextCard(shuffledDeck)];
     dealerCards = [getNextCard(shuffledDeck), getNextCard(shuffledDeck)];
-    playerScore = calculateScore(playerCards);
+    playerScore.player1 = calculateScore(cards.player1);
     dealerScore = calculateScore(dealerCards);
 
     showStatus();
-    checkIfBlackJack();
+    checkIfBlackJack(playerScore);
+    clearGameIfNeeded();
+
+    if (cards.player1[1].value === cards.player1[0].value) {
+        splitButton.style.display = 'inline';
+    }
+
 });
 
 
+splitButton.addEventListener('click', function(){
+    gameOver.player2 = false;
+    hitButton.player2.style.display = 'inline';
+    splitButton.style.display = 'none';
+    splitmode = true;
+    cards.player2 = cards.player1.splice(1);
+    playerScore.player1 = calculateScore(cards.player1);
+    playerScore.player2  = calculateScore(cards.player2);
 
+    showStatus();
+});
 
 function createDeck(types, values){
-    let deck = []; 
+    let deck = [];
     let currType = null;
     let currValue = null;
     for (let typeInd = 0; typeInd < types.length; typeInd++){
@@ -151,14 +217,14 @@ function createDeck(types, values){
               currValue = values[valueInd];
               let card ={
                 type : currType,
-                value : currValue   
+                value : currValue
               };
 
-              deck.push(card); 
-              
-        }  
+              deck.push(card);
+
+        }
      }
-     return deck; 
+     return deck;
 }
 
 function getNextCard(deck){
@@ -176,7 +242,7 @@ function shuffleDeck(deck) {
         let currCard = deck[random];
         shuffledDeck.push(currCard);
         deck[i] = currCard;
-        deck[random] = temp;      
+        deck[random] = temp;
     }
     return shuffledDeck;
 }
@@ -191,61 +257,93 @@ function showStatus(){
     if (!gameStarted){
         textArea.innerText = "Welcome Mr. S";
         return;
-    } 
-    // disaplaying players and dealers cards
-    let playerCardsText  = [];
-
-    for (let i = 0; i < playerCards.length; i++) {
-        playerCardsText += createTheCardText(playerCards[i]) + '\n';
     }
-
-    let dealerCardsText  = [];
+    // displaying players and dealers cards
+    let dealerCardsText  = "dealer has: \n";
     for (let i = 0; i < dealerCards.length; i++) {
         dealerCardsText += createTheCardText(dealerCards[i]) + '\n';
     }
+    dealerCardsText += "Score: " + dealerScore + "\n\n";
 
-    textArea.innerText = "Player has: \n" + playerCardsText 
-                        +"Score: " + playerScore + "\n\n"
-                        + "Dealer has: \n" + dealerCardsText 
-                        +"Score: " + dealerScore + "\n\n";
-    
+
+    let playerCardsText  = [];
+
+    for (let player in cards) {
+        playerCardsText += "\n" + player + " has: \n";
+        for (let i = 0; i < cards[player].length; i++) {
+            playerCardsText += createTheCardText(cards[player][i]) + '\n';
+        }
+        playerCardsText += "Score: " + playerScore[player] + "\n\n";
+
+    }
+    textArea.innerText = playerCardsText + dealerCardsText
+
+
+    for (let i = 0; i < cards.player1.length; i++) {
+        playerCardsText += createTheCardText(cards.player1[i]) + '\n';
+    }
+
 };
 
 function clearGame(){
     gameStarted = false;
-    gameOver = false;
+    gameOver = {
+        player1: false,
+        player2: true,
+        general: false
+    };
     playerWin = false;
-    playerCards = [];
+    splitmode =false;
+    cards = {};
     dealerCards= [];
-    playerScore = 0;
+    playerScore = {};
     dealerScore =0;
+    splitmode = false;
     deck =[];
-    hitButton.style.display = "none";
+    hitButton.player1.style.display = "none";
     stayButton.style.display= "none";
+    hitButton.player2.style.display = 'none';
     newGameButton.style.display ="inline"
-
 }
 
-
 function calculateScore(hand) {
+    let aceCounter = 0;
     let handScore = 0;
     for (let i = 0; i < hand.length; i++ ){
         let currentCardValue = hand[i].value;
+        if (currentCardValue === "Ace") {
+            aceCounter++;
+        }
         handScore += allScores[currentCardValue];
-        if (currentCardValue === "Ace" && (handScore + 10)<= 21){
+    }
+    for (let i = 0; i < aceCounter; i++) {
+        if (handScore + 10 <= 21){
             handScore += 10;
+        } else {
+            break;
         }
     }
     return handScore;
 };
 
-function dealersMove(){
-    while (dealerScore < 18) {
+function dealersMove() {
+    while (dealerScore < 17 || (playerScore.player1 >= 17 && getNumberOfPlayers() === 1)) {
+        if (dealerScore >= playerScore.player1){
+            break;
+        }
         let newCard = getNextCard(shuffledDeck);
         dealerCards.push(newCard);
-        dealerScore = calculateScore(dealerCards); 
+        dealerScore = calculateScore(dealerCards);
+        if (dealerScore >= 21 || dealerScore >= playerScore.player1){
+            break;
+        }
     }
 }
 
-//console.log("welcome!");
-//console.log("Your cards are: " + createTheCardText(playerCards[0]) + " and " + createTheCardText(playerCards[1]));
+function getNumberOfPlayers() {
+    let size = 0;
+    for (let key in playerScore) {
+        if (playerScore.hasOwnProperty(key)) size++;
+    }
+    return size;
+};
